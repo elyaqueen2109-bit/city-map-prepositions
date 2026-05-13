@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, touch-action: manipulation">
-    <title>🏙️ City Map — Prepositions Game (Responsive)</title>
+    <title>🏙️ City Map — Prepositions Game (Final Mobile Fix)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         :root { --cream: #fff8ec; }
@@ -295,22 +295,19 @@
             50% { transform: rotate(2deg); }
         }
 
-        /* Мобильная адаптация: ограничения по высоте только для маленьких экранов */
+        /* Мобильная версия: панель зданий с горизонтальной прокруткой, без принудительной высоты */
         @media (max-width: 800px) {
             body {
-                height: 100dvh;
-                overflow: hidden;
+                padding: 8px;
+                min-height: 100vh;
             }
             .game-wrapper {
-                height: 100dvh;
-                display: flex;
-                flex-direction: column;
+                border-radius: 25px;
                 padding: 10px 12px 14px;
             }
             .map-container {
-                flex: 1 1 auto;
-                min-height: 0;
-                border-width: 8px;
+                border-width: 6px;
+                margin-bottom: 12px;
             }
             .drag-panel {
                 flex-wrap: nowrap;
@@ -318,11 +315,15 @@
                 -webkit-overflow-scrolling: touch;
                 padding: 8px 10px;
                 gap: 10px;
+                justify-content: flex-start;
             }
             .drag-item {
                 flex-shrink: 0;
                 padding: 6px 14px;
                 gap: 8px;
+            }
+            .instruction-panel {
+                padding: 8px 14px;
             }
         }
     </style>
