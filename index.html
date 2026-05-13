@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, touch-action: manipulation">
+    <title>🏙️ City Map — Prepositions Game (Extended)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root { --cream: #fff8ec; }
+        * { user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        body {
+            background: linear-gradient(180deg, #c8e6a0 0%, #8bc34a 40%, #6d9b3a 80%);
+            font-family: 'Comic Neue', 'Segoe UI', 'Comic Sans MS', cursive, sans-serif;
+            margin: 0; padding: 12px; min-height: 100vh; display: flex; justify-content: center; align-items: center;
+        }
+        .game-wrapper {
+            max-width: 1500px; width: 100%; background: var(--cream); border-radius: 50px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3), 0 0 0 4px #ffe4b5; padding: 18px 20px 22px; border: 3px solid #ffc88a;
+        }
+        h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 3.5vw, 2.3rem); text-align: center; color: #2b5732; text-shadow: 2px 2px 0 #ffc785; }
+        .sub { text-align: center; font-size: 0.95rem; color: #7a5020; margin-bottom: 14px; font-weight: 600; }
+        .stars-row { display: flex; justify-content: center; gap: 8px; margin-bottom: 12px; font-size: 2rem; }
+        .star { transition: 0.3s; filter: grayscale(1) opacity(0.4); font-size: 2rem; }
+        .star.earned { filter: none; animation: popStar 0.5s ease; font-size: 2.3rem; }
+        @keyframes popStar { 0%{transform:scale(0.3) rotate(-30deg);} 60%{transform:scale(1.4) rotate(10deg);} 100%{transform:scale(1) rotate(0);} }
+
+        .instruction-panel { background:#ffe0b5; border-radius:100px; padding:10px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px; border:2px solid #ffaa55; box-shadow:0 6px 0 #b97f3a; }
+        .task-card { background:white; border-radius:60px; padding:10px 20px; flex:3; text-align:center; font-size:clamp(1rem,2vw,1.3rem); font-weight:bold; color:#b45116; }
+        .preposition-highlight { display:inline-block; background:#fff3cd; color:#c0392b; padding:2px 10px; border-radius:20px; border:2px dashed #f39c12; font-weight:900; margin:0 3px; animation:pulsePrep 2s infinite; }
+        @keyframes pulsePrep { 0%,100%{border-color:#f39c12;} 50%{border-color:#e74c3c; background:#ffeaa7;} }
+
+        .btn-group { display:flex; gap:8px; flex-wrap:wrap; }
+        .speak-btn, .reset-btn, .undo-btn { border:none; font-size:1rem; font-weight:bold; padding:10px 20px; border-radius:50px; cursor:pointer; color:white; box-shadow:0 5px 0 rgba(0,0,0,0.25); transition:0.05s; font-family:inherit; white-space:nowrap; }
+        .speak-btn { background:#6f9e3f; box-shadow:0 5px 0 #3e6220; }
+        .speak-btn:active { transform:translateY(2px); box-shadow:0 2px 0 #3e6220; }
+        .reset-btn { background:#c96f32; box-shadow:0 5px 0 #87461b; }
+        .reset-btn:active { transform:translateY(2px); box-shadow:0 2px 0 #87461b; }
+        .undo-btn { background:#e8a040; box-shadow:0 5px 0 #9b5e20; }
+        .undo-btn:active { transform:translateY(2px); box-shadow:0 2px 0 #9b5e20; }
+        .undo-btn:disabled { opacity:0.4; cursor:not-allowed; }
+
+        .map-container { 
+            border-radius:40px; overflow:hidden; border:10px solid #6b4c3b; 
+            box-shadow:0 15px 30px rgba(0,0,0,0.4); margin-bottom:20px; 
+            position: relative;
+        }
+        .city-map {
+            display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(4,1fr);
+            aspect-ratio:4/3; width:100%;
+            background-image:url('background.png'); background-size:cover; background-position:center; background-repeat:no-repeat;
+        }
+        .tile {
+            background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center;
+            position:relative; transition:0.15s; min-height:180px; padding:10px; z-index:1;
+        }
+        .tile.valid-drop { border: none; box-shadow: none; background-color: transparent; cursor: pointer; }
+        .tile.wrong-flash { animation:wrongShake 0.5s; }
+        @keyframes wrongShake { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-5px);} 80%{transform:translateX(5px);} }
+        .tile.correct-pop { animation:correctBounce 0.5s; }
+        @keyframes correctBounce { 0%{transform:scale(1);} 30%{transform:scale(1.12);} 60%{transform:scale(0.94);} 100%{transform:scale(1);} }
+
+        .street-label { display: none; }
+        .building-img {
+            width: clamp(140px, 20vw, 240px);
+            height: clamp(140px, 20vw, 240px);
+            object-fit: contain;
+            filter: drop-shadow(4px 6px 8px rgba(0,0,0,0.5));
+        }
+        .fallback-icon {
+            font-size: clamp(5rem, 10vw, 7rem);
+            color:#4a2e1a;
+            background:rgba(255,250,220,0.85);
+            width: clamp(140px, 20vw, 240px);
+            height: clamp(140px, 20vw, 240px);
+            display:flex; align-items:center; justify-content:center; border-radius:30px;
+        }
+        .building-name-tag { display: none; }
+
+        .drag-panel { background:#ffefcf; border-radius:50px; padding:14px 16px; display:flex; flex-wrap:wrap; justify-content:center; gap:12px; border:3px solid #ffbc73; margin-bottom:15px; }
+        .drag-item { background:white; border-radius:50px; padding:8px 18px; display:inline-flex; align-items:center; gap:12px; font-weight:bold; font-size:clamp(0.85rem,1.8vw,1.1rem); box-shadow:0 6px 0 #b4946b; cursor:grab; border:2px solid #f7e0b0; }
+        .drag-item:active { cursor:grabbing; transform:translateY(3px); box-shadow:0 3px 0 #b4946b; }
+        .drag-item.selected-building { outline:4px solid #ff6b6b; outline-offset:3px; background:#fff5f5; animation:selectedWiggle 0.6s infinite; }
+        @keyframes selectedWiggle { 0%,100%{transform:translateY(-3px);} 25%{transform:rotate(1deg);} 75%{transform:rotate(-1deg);} }
+        .drag-img { width:clamp(65px,10vw,100px); height:clamp(65px,10vw,100px); object-fit:contain; }
+        .drag-fallback { font-size:2.5rem; color:#5a3a1a; width:clamp(65px,10vw,100px); height:clamp(65px,10vw,100px); display:flex; align-items:center; justify-content:center; background:#fdf5e6; border-radius:22px; }
+
+        .feedback-area { background:#fbefc7; padding:12px 20px; border-radius:60px; text-align:center; font-size:1rem; font-weight:bold; color:#2a5c2a; }
+        footer { font-size:0.7rem; text-align:center; color:#9b7a4a; }
+
+        .bird {
+            position: absolute;
+            font-size: 1.2rem;
+            color: #333;
+            z-index: 4;
+            animation: flyBird ease-in-out infinite;
+            pointer-events: none;
+        }
+        .bird-1 { top: 15%; left: 10%; animation-duration: 6s; }
+        .bird-2 { top: 12%; left: 30%; animation-duration: 7s; animation-delay: 2s; }
+        .bird-3 { top: 18%; left: 50%; animation-duration: 5s; animation-delay: 1s; }
+        @keyframes flyBird {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(15px, -10px) rotate(5deg); }
+            50% { transform: translate(30px, 0px) rotate(0deg); }
+            75% { transform: translate(15px, -10px) rotate(-5deg); }
+        }
+
+        .tree-animated {
+            position: absolute;
+            font-size: 1.5rem;
+            color: #2e8b57;
+            z-index: 3;
+            animation: swayTree 3s ease-in-out infinite;
+            pointer-events: none;
+        }
+        .tree-1 { top: 25%; left: 2%; }
+        .tree-2 { top: 55%; left: 96%; }
+        .tree-3 { top: 75%; left: 3%; }
+        @keyframes swayTree {
+            0%, 100% { transform: rotate(-2deg); }
+            50% { transform: rotate(2deg); }
+        }
+        @media (max-width: 800px) {
+            .tile { min-height:120px; }
+            .building-img { width: clamp(100px, 25vw, 160px); height: clamp(100px, 25vw, 160px); }
+            .fallback-icon { width: clamp(100px, 25vw, 160px); height: clamp(100px, 25vw, 160px); font-size: 4rem; }
+            .bird { font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-wrapper">
+    <h1>🏙️ Go Getter 2: City Map Adventure 🏙️</h1>
+    <div class="sub">🎧 Listen, then drag or tap buildings onto the map! (British English)</div>
+    <div class="stars-row" id="starsRow">
+        <span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span>
+        <span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span>
+        <span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span>
+    </div>
+    <div class="instruction-panel">
+        <div class="task-card">🎯 <strong id="taskText">The library is next to the supermarket in Main Street.</strong></div>
+        <div class="btn-group">
+            <button class="speak-btn" id="speakBtn">🔊 SPEAK</button>
+            <button class="undo-btn" id="undoBtn" disabled>↩ UNDO</button>
+            <button class="reset-btn" id="resetGameBtn">🔄 New Game</button>
+        </div>
+    </div>
+    <div class="map-container">
+        <div class="city-map" id="cityGrid"></div>
+        <i class="fas fa-dove bird bird-1"></i>
+        <i class="fas fa-dove bird bird-2"></i>
+        <i class="fas fa-dove bird bird-3"></i>
+        <i class="fas fa-tree tree-animated tree-1"></i>
+        <i class="fas fa-tree tree-animated tree-2"></i>
+        <i class="fas fa-tree tree-animated tree-3"></i>
+    </div>
+    <div class="drag-panel" id="dragPanel">
+        <div class="drag-item" draggable="true" data-building="library"><img class="drag-img" src="library.png" alt="library" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-book-open\'></i></div>');"><span>LIBRARY</span></div>
+        <div class="drag-item" draggable="true" data-building="hospital"><img class="drag-img" src="hospital.png" alt="hospital" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-hospital-user\'></i></div>');"><span>HOSPITAL</span></div>
+        <div class="drag-item" draggable="true" data-building="school"><img class="drag-img" src="school.png" alt="school" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-chalkboard-user\'></i></div>');"><span>SCHOOL</span></div>
+        <div class="drag-item" draggable="true" data-building="park"><img class="drag-img" src="park.png" alt="park" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-tree\'></i></div>');"><span>PARK</span></div>
+        <div class="drag-item" draggable="true" data-building="supermarket"><img class="drag-img" src="supermarket.png" alt="supermarket" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-cart-shopping\'></i></div>');"><span>SUPERMARKET</span></div>
+        <div class="drag-item" draggable="true" data-building="cinema"><img class="drag-img" src="cinema.png" alt="cinema" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-film\'></i></div>');"><span>CINEMA</span></div>
+        <div class="drag-item" draggable="true" data-building="museum"><img class="drag-img" src="museum.png" alt="museum" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-landmark\'></i></div>');"><span>MUSEUM</span></div>
+        <div class="drag-item" draggable="true" data-building="theatre"><img class="drag-img" src="theatre.png" alt="theatre" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-masks-theater\'></i></div>');"><span>THEATRE</span></div>
+        <div class="drag-item" draggable="true" data-building="bakery"><img class="drag-img" src="bakery.png" alt="bakery" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-bread-slice\'></i></div>');"><span>BAKERY</span></div>
+        <div class="drag-item" draggable="true" data-building="chemist"><img class="drag-img" src="pharmacy.png" alt="chemist" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-prescription-bottle-alt\'></i></div>');"><span>CHEMIST</span></div>
+        <div class="drag-item" draggable="true" data-building="bank"><img class="drag-img" src="bank.png" alt="bank" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-bank\'></i></div>');"><span>BANK</span></div>
+        <div class="drag-item" draggable="true" data-building="pool"><img class="drag-img" src="pool.png" alt="pool" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-swimming-pool\'></i></div>');"><span>SWIMMING POOL</span></div>
+        <div class="drag-item" draggable="true" data-building="shopping_centre"><img class="drag-img" src="shopping_centre.png" alt="shopping centre" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-shopping-basket\'></i></div>');"><span>SHOPPING CENTRE</span></div>
+        <div class="drag-item" draggable="true" data-building="car_park"><img class="drag-img" src="car_park.png" alt="car park" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-car\'></i></div>');"><span>CAR PARK</span></div>
+        <div class="drag-item" draggable="true" data-building="stadium"><img class="drag-img" src="stadium.png" alt="stadium" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin','<div class=\'drag-fallback\'><i class=\'fas fa-futbol\'></i></div>');"><span>STADIUM</span></div>
+    </div>
+    <div class="feedback-area" id="feedbackMsg">💡 <span>Tap a building, then tap on the map.</span></div>
+    <footer>🗺️ <b>Green Street</b> · <b>Main Street</b> · <b>School Lane</b> · <b>Park Avenue</b></footer>
+</div>
+<script>
+    (function() {
+        const ROWS=4, COLS=4;
+        function getStreetName(r,c){ let s=[]; if(r===0)s.push("Green St"); if(r===3)s.push("School Ln"); if(c===0)s.push("Main St"); if(c===3)s.push("Park Ave"); return s.join(" / ")||"City Center"; }
+        let gridData=[],currentTaskIndex=0,gameCompleted=false,tasks=[],selectedBuilding=null,moveHistory=[],totalStarsEarned=0;
+        const cityGridDiv=document.getElementById('cityGrid'),taskText=document.getElementById('taskText'),
+              feedback=document.getElementById('feedbackMsg'),undoBtn=document.getElementById('undoBtn'),
+              speakBtn=document.getElementById('speakBtn'),resetBtn=document.getElementById('resetGameBtn'),
+              starsRow=document.getElementById('starsRow'),starEls=starsRow.querySelectorAll('.star');
+
+        function initGrid(){
+            gridData=Array(ROWS).fill().map(()=>Array(COLS).fill().map(()=>({type:null,occupied:false})));
+            gridData[2][1]={type:"supermarket",name:"Supermarket",occupied:true,fixed:true};
+        }
+        function defineTasks(){ return [
+            { building:"library", instruction:'The library is <span class="preposition-highlight">next to</span> the supermarket <span class="preposition-highlight">in</span> Main Street.', plain:'The library is next to the supermarket in Main Street.',
+                check:(r,c,d)=> { let p=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) if(d[i][j].type==="supermarket" && d[i][j].fixed) p={i,j}; return p && r===p.i && c===p.j-1 && !d[r][c].occupied; } },
+            { building:"hospital", instruction:'The hospital is <span class="preposition-highlight">opposite</span> the supermarket.', plain:'The hospital is opposite the supermarket.',
+                check:(r,c,d)=> { let p=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) if(d[i][j].type==="supermarket" && d[i][j].fixed) p={i,j}; return p && r===p.i-1 && c===p.j && !d[r][c].occupied; } },
+            { building:"school", instruction:'The school is <span class="preposition-highlight">in</span> Green Street <span class="preposition-highlight">behind</span> the hospital.', plain:'The school is in Green Street behind the hospital.',
+                check:(r,c,d)=> { let h=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) if(d[i][j].type==="hospital") h={i,j}; return h && r===0 && c===h.j && !d[r][c].occupied; } },
+            { building:"park", instruction:'The park is <span class="preposition-highlight">on the corner</span> of Green Street and Park Avenue.', plain:'The park is on the corner of Green Street and Park Avenue.',
+                check:(r,c,d)=> r===0 && c===3 && !d[r][c].occupied },
+            { building:"supermarket", instruction:'The supermarket is <span class="preposition-highlight">in front of</span> the park.', plain:'The supermarket is in front of the park.',
+                check:(r,c,d)=> { let parkPos=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) if(d[i][j].type==="park") parkPos={i,j}; return parkPos && r===parkPos.i+1 && c===parkPos.j && !d[r][c].occupied; } },
+            { building:"cinema", instruction:'The cinema is <span class="preposition-highlight">opposite</span> the school, <span class="preposition-highlight">next to</span> the park.', plain:'The cinema is opposite the school, next to the park.',
+                check:(r,c,d)=> { let sc=null, pk=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) { if(d[i][j].type==="school") sc={i,j}; if(d[i][j].type==="park") pk={i,j}; } return sc && pk && r===0 && c===sc.j+1 && c===pk.j-1 && !d[r][c].occupied; } },
+            { building:"museum", instruction:'The museum is <span class="preposition-highlight">in</span> Main Street <span class="preposition-highlight">in front of</span> the library.', plain:'The museum is in Main Street in front of the library.',
+                check:(r,c,d)=> { let lib=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) if(d[i][j].type==="library") lib={i,j}; return lib && c===0 && r===lib.i+1 && !d[r][c].occupied; } },
+            { building:"theatre", instruction:'The theatre is <span class="preposition-highlight">opposite</span> the supermarket.', plain:'The theatre is opposite the supermarket.',
+                check:(r,c,d)=> { let p=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) if(d[i][j].type==="supermarket" && d[i][j].fixed) p={i,j}; return p && ((Math.abs(p.i - r) === 2 && p.j === c) || (Math.abs(p.j - c) === 2 && p.i === r)) && !d[r][c].occupied; } },
+            { building:"bakery", instruction:'The bakery is <span class="preposition-highlight">in front of</span> the cinema.', plain:'The bakery is in front of the cinema.',
+                check:(r,c,d)=> { let cin=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) if(d[i][j].type==="cinema") cin={i,j}; return cin && r===cin.i+1 && c===cin.j && !d[r][c].occupied; } },
+            { building:"chemist", instruction:'The chemist is <span class="preposition-highlight">next to</span> the theatre.', plain:'The chemist is next to the theatre.',
+                check:(r,c,d)=> { let th=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) if(d[i][j].type==="theatre") th={i,j}; return th && (Math.abs(r - th.i) + Math.abs(c - th.j) === 1) && !d[r][c].occupied; } },
+            { building:"bank", instruction:'The bank is <span class="preposition-highlight">next to</span> the museum <span class="preposition-highlight">in</span> School Lane.', plain:'The bank is next to the museum in School Lane.',
+                check:(r,c,d)=> { let muse=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) if(d[i][j].type==="museum") muse={i,j}; return muse && r===3 && c===muse.j+1 && !d[r][c].occupied; } },
+            { building:"pool", instruction:'The swimming pool is <span class="preposition-highlight">on the corner</span> of Main Street and Green Street, <span class="preposition-highlight">next to</span> the school.', plain:'The swimming pool is on the corner of Main Street and Green Street, next to the school.',
+                check:(r,c,d)=> { let sch=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) if(d[i][j].type==="school") sch={i,j}; return sch && r===0 && c===0 && !d[r][c].occupied; } },
+            { building:"shopping_centre", instruction:'The shopping centre is <span class="preposition-highlight">in front of</span> the theatre.', plain:'The shopping centre is in front of the theatre.',
+                check:(r,c,d)=> { let th=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) if(d[i][j].type==="theatre") th={i,j}; return th && r===th.i+1 && c===th.j && !d[r][c].occupied; } },
+            { building:"car_park", instruction:'The car park is <span class="preposition-highlight">next to</span> the hospital <span class="preposition-highlight">in front of</span> the swimming pool.', plain:'The car park is next to the hospital in front of the swimming pool.',
+                check:(r,c,d)=> { let h=null, p=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) { if(d[i][j].type==="hospital") h={i,j}; if(d[i][j].type==="pool") p={i,j}; } return h && p && r===1 && c===0 && !d[r][c].occupied; } },
+            { building:"stadium", instruction:'The stadium is <span class="preposition-highlight">opposite</span> the bank, <span class="preposition-highlight">in front of</span> the chemist.', plain:'The stadium is opposite the bank, in front of the chemist.',
+                check:(r,c,d)=> { let b=null, ch=null; for(let i=0;i<ROWS;i++) for(let j=0;j<COLS;j++) { if(d[i][j].type==="bank") b={i,j}; if(d[i][j].type==="chemist") ch={i,j}; } return b && ch && r===3 && c===2 && !d[r][c].occupied; } }
+        ];}
+        function getValidCells(){ if(gameCompleted||currentTaskIndex>=tasks.length)return[]; let v=[]; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(tasks[currentTaskIndex].check(r,c,gridData)) v.push({row:r,col:c}); return v; }
+        function icon(type){ return {library:"fa-book-open",museum:"fa-landmark",cinema:"fa-film",supermarket:"fa-cart-shopping",school:"fa-chalkboard-user",park:"fa-tree",hospital:"fa-hospital-user",theatre:"fa-masks-theater",bakery:"fa-bread-slice",chemist:"fa-prescription-bottle-alt",bank:"fa-bank",pool:"fa-swimming-pool",shopping_centre:"fa-shopping-basket",car_park:"fa-car",stadium:"fa-futbol"}[type]||"fa-building"; }
+        function renderMap(){
+            cityGridDiv.innerHTML='';
+            let valid=getValidCells();
+            for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+                let cell=gridData[r][c], tile=document.createElement('div'); tile.className='tile';
+                if(valid.some(v=>v.row===r&&v.col===c)&&!gameCompleted) tile.classList.add('valid-drop');
+                tile.innerHTML=`<div class="street-label" style="display:none;">${getStreetName(r,c)}</div>`;
+                if(cell.occupied && cell.type && !(cell.fixed && cell.type==='supermarket')){
+                    let imgSrc = cell.type === 'chemist' ? 'pharmacy.png' : (cell.type === 'car_park' ? 'car_park.png' : (cell.type === 'stadium' ? 'stadium.png' : (cell.type === 'shopping_centre' ? 'shopping_centre.png' : (cell.type === 'pool' ? 'pool.png' : `${cell.type}.png`))));
+                    let imgHtml = `<img class="building-img" src="${imgSrc}" alt="${cell.type}" style="`;
+                    // обновлённые позиции и размеры
+                    if(cell.type === 'library') imgHtml += 'transform: translateX(120px);';
+                    else if(cell.type === 'museum') imgHtml += 'transform: translateX(140px) translateY(-55px) scale(1.35);';
+                    else if(cell.type === 'school') imgHtml += 'transform: translateY(40px) scale(1.25);';
+                    else if(cell.type === 'cinema') imgHtml += 'transform: translateY(48px) scale(1.1);';
+                    else if(cell.type === 'park') imgHtml += 'transform: translateX(-120px) translateY(50px);';
+                    else if(cell.type === 'supermarket') imgHtml += 'transform: translateX(-120px) scale(1.4);';
+                    else if(cell.type === 'theatre') imgHtml += 'transform: translateX(-110px) translateY(15px) scale(1.28);';
+                    else if(cell.type === 'bakery') imgHtml += 'transform: translateY(-12px) scale(1.3);';  // уменьшен с 1.5 до 1.3
+                    else if(cell.type === 'chemist') imgHtml += 'transform: translateY(25px) translateX(12px) scale(1.3);';  // уменьшен с 1.7 до 1.3
+                    else if(cell.type === 'bank') imgHtml += 'transform: translateX(18px) translateY(-18px) scale(1.3);';  // поднят и увеличен
+                    else if(cell.type === 'pool') imgHtml += 'transform: translateX(30px) translateY(55px) scale(2);';  // значительно ниже и x2
+                    else if(cell.type === 'shopping_centre') imgHtml += 'transform: translateX(-130px) translateY(-10px) scale(2);';  // x2 и левее
+                    else if(cell.type === 'car_park') imgHtml += 'transform: translateX(70px) translateY(20px) scale(3);';  // вправо и x3
+                    else if(cell.type === 'stadium') imgHtml += 'transform: translateY(-15px) scale(2);';  // вверх и x2
+                    imgHtml += `" onerror="this.onerror=null;this.style.display='none';this.parentNode.appendChild(Object.assign(document.createElement('div'),{className:'fallback-icon',innerHTML:'<i class=\\'fas ${icon(cell.type)}\\'></i>'}));">`;
+                    tile.innerHTML += imgHtml;
+                }
+                tile.dataset.row=r; tile.dataset.col=c;
+                tile.addEventListener('click',()=>handleClick(r,c,tile));
+                cityGridDiv.appendChild(tile);
+            }
+            attachDropEvents();
+            undoBtn.disabled=(moveHistory.length===0||gameCompleted);
+        }
+        function handleClick(r,c,tile){
+            if(gameCompleted) return feedback.innerHTML='🎉 Game finished!';
+            if(!selectedBuilding) return feedback.innerHTML='👆 First tap a building!';
+            if(gridData[r][c].occupied) return tile.classList.add('wrong-flash'), setTimeout(()=>tile.classList.remove('wrong-flash'),500);
+            let ok=tryPlace(selectedBuilding,r,c,tile); if(ok) deselectBuilding(); else if(tile.classList.contains('valid-drop')){ tile.classList.add('wrong-flash'); setTimeout(()=>tile.classList.remove('wrong-flash'),500); }
+        }
+        function tryPlace(type,r,c,tile){
+            if(gameCompleted||currentTaskIndex>=tasks.length) return false;
+            let task=tasks[currentTaskIndex];
+            if(type!==task.building){ feedback.innerHTML=`❌ You need <b>${task.building.toUpperCase()}</b>`; return false; }
+            if(!getValidCells().some(v=>v.row===r&&v.col===c)){ feedback.innerHTML=`❌ Wrong place!`; return false; }
+            moveHistory.push({row:r,col:c,building:type,taskIndex:currentTaskIndex,prev:{...gridData[r][c]}});
+            gridData[r][c]={type:type,name:type.charAt(0).toUpperCase()+type.slice(1),occupied:true};
+            document.querySelector(`.drag-item[data-building="${type}"]`).style.display='none';
+            tile.classList.add('correct-pop'); setTimeout(()=>tile.classList.remove('correct-pop'),500);
+            totalStarsEarned++; updateStars(); currentTaskIndex++;
+            if(currentTaskIndex>=tasks.length){ gameCompleted=true; taskText.innerHTML='🎉 <b>CONGRATULATIONS!</b>'; feedback.innerHTML='🌟 All 15 stars!'; }
+            else { updateTaskUI(); speakTask(); }
+            renderMap(); deselectBuilding(); return true;
+        }
+        function undo(){
+            if(gameCompleted||!moveHistory.length) return;
+            let last=moveHistory.pop();
+            gridData[last.row][last.col]=last.prev.type?{...last.prev}:{type:null,occupied:false};
+            document.querySelector(`.drag-item[data-building="${last.building}"]`).style.display='flex';
+            currentTaskIndex=last.taskIndex; totalStarsEarned--; updateStars(); updateTaskUI(); renderMap(); deselectBuilding();
+            feedback.innerHTML='↩ Undo!';
+        }
+        function updateStars(){ starEls.forEach((s,i)=>s.classList.toggle('earned',i<totalStarsEarned)); undoBtn.disabled=(moveHistory.length===0||gameCompleted); }
+        function updateTaskUI(){
+            if(gameCompleted) return;
+            let t=tasks[currentTaskIndex];
+            taskText.innerHTML=t.instruction;
+            feedback.innerHTML=`📍 Task ${currentTaskIndex+1}/15: place <b>${t.building.toUpperCase()}</b>`;
+        }
+        function speakTask(){
+            if(gameCompleted||currentTaskIndex>=tasks.length) return;
+            speak(tasks[currentTaskIndex].plain);
+        }
+        function selectBuilding(type,el){ deselectBuilding(); selectedBuilding=type; el.classList.add('selected-building'); }
+        function deselectBuilding(){ selectedBuilding=null; document.querySelectorAll('.drag-item.selected-building').forEach(e=>e.classList.remove('selected-building')); }
+        let dragType=null;
+        function attachDragEvents(){
+            document.querySelectorAll('.drag-item').forEach(item=>{
+                item.addEventListener('dragstart',e=>{ dragType=item.dataset.building; e.dataTransfer.setData('text/plain',dragType); deselectBuilding(); });
+                item.addEventListener('dragend',()=>dragType=null);
+                item.addEventListener('click',e=>{ e.stopPropagation(); let b=item.dataset.building; selectedBuilding===b?deselectBuilding():selectBuilding(b,item); });
+            });
+        }
+        function attachDropEvents(){
+            document.querySelectorAll('.tile').forEach(tile=>{
+                tile.addEventListener('dragover',e=>{ e.preventDefault(); });
+                tile.addEventListener('drop',e=>{
+                    e.preventDefault(); let b=dragType||e.dataTransfer.getData('text/plain'); if(!b) return;
+                    let r=+tile.dataset.row,c=+tile.dataset.col;
+                    if(gridData[r][c].occupied) return tile.classList.add('wrong-flash'), setTimeout(()=>tile.classList.remove('wrong-flash'),500);
+                    let ok=tryPlace(b,r,c,tile); if(!ok&&tile.classList.contains('valid-drop')){ tile.classList.add('wrong-flash'); setTimeout(()=>tile.classList.remove('wrong-flash'),500); }
+                    dragType=null;
+                });
+            });
+        }
+        document.addEventListener('click',e=>{ if(!e.target.closest('.drag-item')&&!e.target.closest('.tile')) deselectBuilding(); });
+        function speak(t){
+            if('speechSynthesis' in window){
+                window.speechSynthesis.cancel();
+                let u=new SpeechSynthesisUtterance(t);
+                u.lang='en-GB'; u.rate=0.82;
+                window.speechSynthesis.speak(u);
+            }
+        }
+        speakBtn.onclick=()=>{ if(gameCompleted) speak("Congratulations!"); else if(currentTaskIndex<tasks.length) speak(tasks[currentTaskIndex].plain); };
+        resetBtn.onclick=()=>{
+            initGrid(); tasks=defineTasks(); currentTaskIndex=0; gameCompleted=false; moveHistory=[]; totalStarsEarned=0; deselectBuilding();
+            document.querySelectorAll('.drag-item').forEach(e=>e.style.display='flex');
+            updateStars(); updateTaskUI(); renderMap(); attachDragEvents();
+            window.speechSynthesis?.cancel();
+        };
+        undoBtn.onclick=undo;
+        initGrid(); tasks=defineTasks(); updateStars(); renderMap(); attachDragEvents(); updateTaskUI();
+        speakTask();
+    })();
+</script>
+</body>
+</html>
